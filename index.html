@@ -254,6 +254,16 @@
             hasSigned = false;
         }
 
+        // Base64 데이터를 실제 파일 객체(File)로 변환하는 함수
+        function dataURLtoFile(dataurl, filename) {
+            var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new File([u8arr], filename, {type:mime});
+        }
+
         // 이메일 전송 시스템
         function submitSignature() {
             const signerName = nameInput.value.trim();
@@ -272,25 +282,22 @@
             submitBtn.disabled = true;
             submitBtn.innerText = "전송 중...";
 
+            // 1. 캔버스 기법으로 추출한 그림 데이터를 실제 PNG 파일로 변환합니다.
             const dataURL = canvas.toDataURL('image/png');
+            const signatureFile = dataURLtoFile(dataURL, `${signerName}_서명.png`);
             
             const formData = new FormData();
-            formData.append("access_key", "b9752abd-1197-4cad-b680-760343fb5277");
+            formData.append("access_key", "770425cb-df95-4654-8c80-dbb6df65ff10");
             
             formData.append("subject", `[서명 완료] ${signerName} 님의 서명이 도착했습니다.`);
             formData.append("from_name", "전자 서명 시스템");
             formData.append("to_email", "royyeom89@naver.com");
             
-            // ⭐ [핵심 추가] Web3Forms에 이 메일이 HTML 형식임을 강제로 인식시켜 이미지를 띄웁니다.
-            formData.append("isHtml", "true");
+            // 일반 텍스트 안내문으로 변경 (무료 버전 호환성 100%)
+            formData.append("message", `${signerName} 님이 제출하신 전자서명 파일입니다. 메일 하단의 첨부파일을 확인해 주세요.`);
             
-            formData.append("message", `
-                <h3>제출자 정보: ${signerName} 님</h3>
-                <p>아래는 제출된 배경 투명(누끼) 서명 이미지입니다. 마우스 우클릭이나 꾹 눌러서 다른 이름으로 저장(PNG)이 가능합니다.</p>
-                <div style="margin: 20px 0; border: 1px dashed #999; display: inline-block; padding: 10px; background-color: #ffffff;">
-                    <img src="${dataURL}" alt="서명 이미지" style="max-width: 100%; height: auto;" />
-                </div>
-            `);
+            // ⭐ [핵심 변경] 추출된 이미지를 메일 '첨부파일' 항목으로 강제 전달합니다.
+            formData.append("attachment", signatureFile);
 
             fetch('https://api.web3forms.com/submit', {
                 method: 'POST',
